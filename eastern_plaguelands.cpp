@@ -372,6 +372,8 @@ enum
     // SCOURGE
     NPC_MARAUDING_SKELETON = 10952,
     NPC_MARAUDING_CORPSE = 10951,
+    NPC_HORGUS_THE_RAVAGER = 10946,
+    NPC_SERVANT_OF_HORGUS = 10953,
 };
 
 struct CreatureLocation
@@ -381,7 +383,6 @@ struct CreatureLocation
 
 static const CreatureLocation aDarrowshireAllianceLocation[] =
 {
-    // Location 1
     { 1496.91f, -3717.48f, 81.35f, 5.79f },                      // GROUP 1: Alliance spawn point
     { 1492.82f, -3685.71f, 80.41f, 0.45f },                      // GROUP 2: Alliance spawn point
     { 1478.42f, -3661.77f, 81.09f, 0.26f },                      // GROUP 3: Alliance spawn point
@@ -393,11 +394,12 @@ static const CreatureLocation aDarrowshireAllianceLocation[] =
 
 static const CreatureLocation aDarrowshireScourgeLocation[] =
 {
-    // Location 1
     { 1504.72f, -3722.62f, 84.09f, 2.19f },                      // GROUP 1: Scourge spawn point
     { 1506.91f, -3687.94f, 83.14f, 1.63f },                      // GROUP 2: Scourge spawn point
     { 1484.04f, -3653.21f, 85.8f, 3.98f },                       // GROUP 3: Scourge spawn point
     { 1446.32f, -3763.41f, 97.19f, 1.69f },                      // GROUP 4: Scourge spawn point
+
+    { 1522.29f, -3678.4f, 84.2f, 3.32f },                        // Horgus the Ravager
 };
 
 // Darrowshire Defender
@@ -412,7 +414,8 @@ static const CreatureLocation aDarrowshireScourgeLocation[] =
 #define SPELL_CAST_HAMMER_OF_JUSTICE 13005
 #define SPELL_CAST_DEVOTION_AURA 17232
 
-
+// Silver Hand Disciple
+// still need to implement the heal spell !!!!!!!!!!!!!!!!!!
 #define SPELL_CAST_CRUSADER_STRIKE 14518
 
 // this is used to prevent more than one instance of the event running at the same time
@@ -423,8 +426,8 @@ uint32 GROUP_TO_SPAWN_TO = 0;
 enum
 {
     PHASE_1 = 1,    // Marauding Skeletons and Marauding Corpses
-    PHASE_2 = 2,    // Davil Lightfire and Silver Hand Disciples vs Servant of Horgus
-    PHASE_3 = 3,    // Horgus the Ravager 
+    PHASE_2 = 2,    // Davil Lightfire and Silver Hand Disciples (the use of the Relic Bundle starts a timer that will spawn Davil and his adds)
+    PHASE_3 = 3,    // Horgus the Ravager and Servants of Horgus (Davil Lightfire spawn starts off a timer that will spawn Horgus and his adds)
 
     GROUP_0 = 0,
     GROUP_1 = 1,
@@ -435,12 +438,12 @@ enum
 // PHASE 2
 // Daril Lightfire (10944) and Silver Hand Disciples (10949)
 
-uint32 m_uPhase2Timer = 0;
+uint32 m_uPhase2Timer = 0; // time till Davil Lightfore is spawned
+uint32 m_uPhase3Timer = 0; // time till Horgus the Ravager is spawned
 uint32 uCurrentPhase = 0;  // see above fot the different phases of the battle
 
 
 
-// this is used to spawn the different types of creatures that will take part in the Battle for Darrowshire
 void SpawnSourgeCreature(Unit* pUnit, uint32 NPC_TYPE, uint32 uGroup)
 {
     // alter spawn points slighlty
@@ -450,7 +453,6 @@ void SpawnSourgeCreature(Unit* pUnit, uint32 NPC_TYPE, uint32 uGroup)
     Creature* pCreature = pUnit->SummonCreature(NPC_TYPE, fSpawnPointX, fSpawnPointY, aDarrowshireScourgeLocation[uGroup].m_fZ, aDarrowshireScourgeLocation[uGroup].m_fO, TEMPSUMMON_CORPSE_TIMED_DESPAWN, 60000);
 }
 
-// this is used to spawn the different types of creatures that will take part in the Battle for Darrowshire
 void SpawnAllianceCreature(Unit* pUnit, uint32 NPC_TYPE, uint32 uGroup)
 {
     // alter spawn points slighlty
@@ -547,8 +549,8 @@ void SpawnCreature(Creature* m_creature, uint32 uiCreature)
     float fCreatureZ;
     m_creature->GetPosition(fCreatureX, fCreatureY, fCreatureZ);
     // Randomly choose the number of Scourge to spawn (2 or 3)
-    uint32 uTotalToSpawn = rand() % 4 + 3;
-    for (int iCount = 0; iCount < uTotalToSpawn; iCount++)
+    uint32 uiTotalToSpawn = rand() % 4 + 3;
+    for (int iCount = 0; iCount < uiTotalToSpawn; iCount++)
     {
         m_creature->SummonCreature(uiCreature, fCreatureX, fCreatureY, fCreatureZ, 1.0f, TEMPSUMMON_CORPSE_TIMED_DESPAWN, 600000);
     }
@@ -604,6 +606,13 @@ Creature* LocateFriendly(Creature* m_creature, float fRange)
     case NPC_DAVIL_LIGHTFIRE:
         // attempt to locate friendly       
         if (Creature* pFriendly = GetClosestCreatureWithEntry(m_creature, NPC_SILVER_HAND_DISCIPLE, fRange))
+        {
+            return pFriendly;
+        }
+        break;
+    case NPC_HORGUS_THE_RAVAGER:
+        // attempt to locate friendly       
+        if (Creature* pFriendly = GetClosestCreatureWithEntry(m_creature, NPC_SERVANT_OF_HORGUS, fRange))
         {
             return pFriendly;
         }
@@ -762,7 +771,7 @@ struct npc_darrowshire_defenderAI : public ScriptedAI
             if (m_uPhase2Timer < uiDiff)
             {
                 // spawn David Lightfire
-                Creature* pDarrowshireDefender = m_creature->SummonCreature(NPC_DAVIL_LIGHTFIRE, aDarrowshireAllianceLocation[4].m_fX, aDarrowshireAllianceLocation[4].m_fY, aDarrowshireAllianceLocation[4].m_fZ, aDarrowshireAllianceLocation[4].m_fO, TEMPSUMMON_CORPSE_TIMED_DESPAWN, 7200000);
+                m_creature->SummonCreature(NPC_DAVIL_LIGHTFIRE, aDarrowshireAllianceLocation[4].m_fX, aDarrowshireAllianceLocation[4].m_fY, aDarrowshireAllianceLocation[4].m_fZ, aDarrowshireAllianceLocation[4].m_fO, TEMPSUMMON_CORPSE_TIMED_DESPAWN, 7200000);
                 uCurrentPhase = PHASE_2;
             }
             else
@@ -831,6 +840,7 @@ struct npc_marauding_scourgeAI : public ScriptedAI
             m_creature->CastSpell(m_creature->getVictim(), SPELL_CAST_STRIKE, true);
             m_creature->resetAttackTimer();
         }
+
     }
 
 };
@@ -850,6 +860,8 @@ struct npc_davil_lightfireAI : public ScriptedAI
 
     void Reset() override
     {
+        // Start the timer that will spawn Horgus the Ravager
+        m_uPhase3Timer = 90000; // not really 90 seconds
     }
 
     void Aggro(Unit* pWho) override
@@ -861,7 +873,7 @@ struct npc_davil_lightfireAI : public ScriptedAI
         }
     }
 
-    void UpdateAI(const uint32 /*diff*/) override
+    void UpdateAI(const uint32 uiDiff) override
     {
         // check for Silver hand Disciples
         Creature* pFriendly = LocateFriendly(m_creature, 100.0f);
@@ -907,6 +919,22 @@ struct npc_davil_lightfireAI : public ScriptedAI
                 m_creature->CastSpell(m_creature->getVictim(), SPELL_CAST_HOLY_STRIKE, true);
             m_creature->resetAttackTimer();
         }
+
+        // Phase 3 - spawning of Horgus the Raveger
+        if (uCurrentPhase == PHASE_2) // spawning can only occur during PHASE 2
+        {
+            // has the timer expired?
+            if (m_uPhase2Timer < uiDiff)
+            {
+                // spawn Horgus the Raveger
+                m_creature->SummonCreature(NPC_HORGUS_THE_RAVAGER, aDarrowshireScourgeLocation[4].m_fX, aDarrowshireScourgeLocation[4].m_fY, aDarrowshireScourgeLocation[4].m_fZ, aDarrowshireScourgeLocation[4].m_fO, TEMPSUMMON_CORPSE_TIMED_DESPAWN, 7200000);
+                uCurrentPhase = PHASE_3;
+            }
+            else
+            {
+                m_uPhase2Timer -= uiDiff;
+            }
+        }
     }
 
 };
@@ -917,9 +945,9 @@ CreatureAI* GetAI_npc_davil_lightfire(Creature* pCreature)
 }
 
 
-struct npc_silver_hand_discipleAI : public ScriptedAI
+struct silver_hand_discipleAI : public ScriptedAI
 {
-    npc_silver_hand_discipleAI(Creature* pCreature) : ScriptedAI(pCreature)
+    silver_hand_discipleAI(Creature* pCreature) : ScriptedAI(pCreature)
     {
         Reset();
     }
@@ -958,10 +986,51 @@ struct npc_silver_hand_discipleAI : public ScriptedAI
 
 CreatureAI* GetAI_npc_silver_hand_disciple(Creature* pCreature)
 {
-    return new npc_silver_hand_discipleAI(pCreature);
+    return new silver_hand_discipleAI(pCreature);
 }
 
-// start off the Battle of Darrowshire event
+
+struct npc_horgus_the_ravagerAI : public ScriptedAI
+{
+    npc_horgus_the_ravagerAI(Creature* pCreature) : ScriptedAI(pCreature)
+    {
+        Reset();
+    }
+
+    void Reset() override
+    {
+    }
+
+    void UpdateAI(const uint32 /*diff*/) override
+    {
+        // check for Servants of Horgus
+        Creature* pFriendly = LocateFriendly(m_creature, 100.0f);
+        if (pFriendly)
+        {
+        }
+        else
+        {
+            // spawn adds
+            uint32 uiSpawn = rand() % 2;
+            if (uiSpawn == 0)
+            {
+                SpawnCreature(m_creature, NPC_SERVANT_OF_HORGUS);
+            }
+
+        }
+
+        // combat working for Horgus, therefore no need to script it
+
+    }
+
+};
+
+CreatureAI* GetAI_npc_horgus_the_ravager(Creature* pCreature)
+{
+    return new npc_horgus_the_ravagerAI(pCreature);
+}
+
+// start off the Battle of Darrowshire raid event
 bool GOUse_go_relic_bundle(Player* pPlayer, GameObject* pGo)
 {
     // make sure the event is not currently running
@@ -1027,5 +1096,10 @@ void AddSC_eastern_plaguelands()
     pNewScript = new Script;
     pNewScript->Name = "npc_silver_hand_disciple";
     pNewScript->GetAI = &GetAI_npc_silver_hand_disciple;
+    pNewScript->RegisterSelf();
+
+    pNewScript = new Script;
+    pNewScript->Name = "npc_horgus_the_ravager";
+    pNewScript->GetAI = &GetAI_npc_horgus_the_ravager;
     pNewScript->RegisterSelf();
 }
