@@ -444,7 +444,7 @@ uint32 uCurrentPhase = 0;  // see above fot the different phases of the battle
 
 
 
-void SpawnSourgeCreature(Unit* pUnit, uint32 NPC_TYPE, uint32 uGroup)
+void SpawnScourgeCreature(Unit* pUnit, uint32 NPC_TYPE, uint32 uGroup)
 {
     // alter spawn points slighlty
     float fSpawnPointX = aDarrowshireScourgeLocation[uGroup].m_fX + rand() % 5;
@@ -479,10 +479,10 @@ void SpawnFirstWave(Player* pPlayer)
             switch (uScourgeType)
             {
             case 0:
-                SpawnSourgeCreature(pPlayer, NPC_MARAUDING_SKELETON, iGroup);
+                SpawnScourgeCreature(pPlayer, NPC_MARAUDING_SKELETON, iGroup);
                 break;
             default:
-                SpawnSourgeCreature(pPlayer, NPC_MARAUDING_CORPSE, iGroup);
+                SpawnScourgeCreature(pPlayer, NPC_MARAUDING_CORPSE, iGroup);
                 break;
             }
         }
@@ -509,10 +509,10 @@ void SpawnScourge(Unit* pUnit, uint32 uGroup)
         switch (uScourgeType)
         {
         case 0:
-            SpawnSourgeCreature(pUnit, NPC_MARAUDING_SKELETON, uGroup);
+            SpawnScourgeCreature(pUnit, NPC_MARAUDING_SKELETON, uGroup);
             break;
         default:
-            SpawnSourgeCreature(pUnit, NPC_MARAUDING_CORPSE, uGroup);
+            SpawnScourgeCreature(pUnit, NPC_MARAUDING_CORPSE, uGroup);
             break;
         }
     }
