@@ -88,38 +88,42 @@ static const float aPeasantMoveLoc[3] = {3335.0f, -2994.04f, 161.14f};
 
 static const int32 aPeasantSpawnYells[3] = {SAY_PEASANT_APPEAR_1, SAY_PEASANT_APPEAR_2, SAY_PEASANT_APPEAR_3};
 
-struct npc_eris_havenfireAI : public ScriptedAI
+struct npc_eris_havenfire : public CreatureScript
 {
-    npc_eris_havenfireAI(Creature* pCreature) : ScriptedAI(pCreature) { Reset(); }
+    npc_eris_havenfire() : CreatureScript("npc_eris_havenfire") {}
 
-    uint32 m_uiEventTimer;
-    uint32 m_uiSadEndTimer;
-    uint8 m_uiPhase;
-    uint8 m_uiCurrentWave;
-    uint8 m_uiKillCounter;
-    uint8 m_uiSaveCounter;
-
-    ObjectGuid m_playerGuid;
-    GuidList m_lSummonedGuidList;
-
-    void Reset() override
+    struct npc_eris_havenfireAI : public ScriptedAI
     {
-        m_uiEventTimer      = 0;
-        m_uiSadEndTimer     = 0;
-        m_uiPhase           = 0;
-        m_uiCurrentWave     = 0;
-        m_uiKillCounter     = 0;
-        m_uiSaveCounter     = 0;
+        npc_eris_havenfireAI(Creature* pCreature) : ScriptedAI(pCreature) { }
 
-        m_playerGuid.Clear();
-        m_lSummonedGuidList.clear();
-        m_creature->SetFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_QUESTGIVER);
-    }
+        uint32 m_uiEventTimer;
+        uint32 m_uiSadEndTimer;
+        uint8 m_uiPhase;
+        uint8 m_uiCurrentWave;
+        uint8 m_uiKillCounter;
+        uint8 m_uiSaveCounter;
 
-    void JustSummoned(Creature* pSummoned) override
-    {
-        switch (pSummoned->GetEntry())
+        ObjectGuid m_playerGuid;
+        GuidList m_lSummonedGuidList;
+
+        void Reset() override
         {
+            m_uiEventTimer = 0;
+            m_uiSadEndTimer = 0;
+            m_uiPhase = 0;
+            m_uiCurrentWave = 0;
+            m_uiKillCounter = 0;
+            m_uiSaveCounter = 0;
+
+            m_playerGuid.Clear();
+            m_lSummonedGuidList.clear();
+            m_creature->SetFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_QUESTGIVER);
+        }
+
+        void JustSummoned(Creature* pSummoned) override
+        {
+            switch (pSummoned->GetEntry())
+            {
             case NPC_INJURED_PEASANT:
             case NPC_PLAGUED_PEASANT:
                 float fX, fY, fZ;
@@ -137,163 +141,163 @@ struct npc_eris_havenfireAI : public ScriptedAI
             case NPC_SCOURGE_ARCHER:
                 // ToDo: make these ones attack the peasants
                 break;
-        }
-
-        m_lSummonedGuidList.push_back(pSummoned->GetObjectGuid());
-    }
-
-    void SummonedMovementInform(Creature* pSummoned, uint32 uiMotionType, uint32 uiPointId) override
-    {
-        if (uiMotionType != POINT_MOTION_TYPE || !uiPointId)
-        {
-            return;
-        }
-
-        if (uiPointId)
-        {
-            ++m_uiSaveCounter;
-            pSummoned->GetMotionMaster()->Clear();
-
-            pSummoned->RemoveAllAuras();
-            pSummoned->CastSpell(pSummoned, SPELL_ENTER_THE_LIGHT_DND, false);
-            pSummoned->ForcedDespawn(10000);
-
-            // Event ended
-            if (m_uiSaveCounter >= 50 && m_uiCurrentWave == 5)
-            {
-                DoBalanceEventEnd();
             }
-            // Phase ended
-            else if (m_uiSaveCounter + m_uiKillCounter == m_uiCurrentWave * MAX_PEASANTS)
-            {
-                DoHandlePhaseEnd();
-            }
+
+            m_lSummonedGuidList.push_back(pSummoned->GetObjectGuid());
         }
-    }
 
-    void SummonedCreatureJustDied(Creature* pSummoned) override
-    {
-        if (pSummoned->GetEntry() == NPC_INJURED_PEASANT || pSummoned->GetEntry() == NPC_PLAGUED_PEASANT)
+        void SummonedMovementInform(Creature* pSummoned, uint32 uiMotionType, uint32 uiPointId) override
         {
-            ++m_uiKillCounter;
-
-            // If more than 15 peasants have died, then fail the quest
-            if (m_uiKillCounter == MAX_PEASANTS)
+            if (uiMotionType != POINT_MOTION_TYPE || !uiPointId)
             {
-                if (Player* pPlayer = m_creature->GetMap()->GetPlayer(m_playerGuid))
+                return;
+            }
+
+            if (uiPointId)
+            {
+                ++m_uiSaveCounter;
+                pSummoned->GetMotionMaster()->Clear();
+
+                pSummoned->RemoveAllAuras();
+                pSummoned->CastSpell(pSummoned, SPELL_ENTER_THE_LIGHT_DND, false);
+                pSummoned->ForcedDespawn(10000);
+
+                // Event ended
+                if (m_uiSaveCounter >= 50 && m_uiCurrentWave == 5)
                 {
-                    pPlayer->FailQuest(QUEST_BALANCE_OF_LIGHT_AND_SHADOW);
+                    DoBalanceEventEnd();
                 }
-
-                DoScriptText(SAY_EVENT_FAIL_1, m_creature);
-                m_uiSadEndTimer = 4000;
-            }
-            else if (m_uiSaveCounter + m_uiKillCounter == m_uiCurrentWave * MAX_PEASANTS)
-            {
-                DoHandlePhaseEnd();
+                // Phase ended
+                else if (m_uiSaveCounter + m_uiKillCounter == m_uiCurrentWave * MAX_PEASANTS)
+                {
+                    DoHandlePhaseEnd();
+                }
             }
         }
-    }
 
-    void DoSummonWave(uint32 uiSummonId = 0)
-    {
-        float fX, fY, fZ;
-
-        if (!uiSummonId)
+        void SummonedCreatureJustDied(Creature* pSummoned) override
         {
-            for (uint8 i = 0; i < MAX_PEASANTS; ++i)
+            if (pSummoned->GetEntry() == NPC_INJURED_PEASANT || pSummoned->GetEntry() == NPC_PLAGUED_PEASANT)
             {
-                uint32 uiSummonEntry = roll_chance_i(70) ? NPC_INJURED_PEASANT : NPC_PLAGUED_PEASANT;
-                m_creature->GetRandomPoint(aPeasantSpawnLoc[0], aPeasantSpawnLoc[1], aPeasantSpawnLoc[2], 10.0f, fX, fY, fZ);
-                if (Creature* pTemp = m_creature->SummonCreature(uiSummonEntry, fX, fY, fZ, 0, TEMPSUMMON_DEAD_DESPAWN, 0))
+                ++m_uiKillCounter;
+
+                // If more than 15 peasants have died, then fail the quest
+                if (m_uiKillCounter == MAX_PEASANTS)
                 {
-                    // Only the first mob needs to yell
-                    if (!i)
+                    if (Player* pPlayer = m_creature->GetMap()->GetPlayer(m_playerGuid))
                     {
-                        DoScriptText(aPeasantSpawnYells[urand(0, 2)], pTemp);
+                        pPlayer->FailQuest(QUEST_BALANCE_OF_LIGHT_AND_SHADOW);
+                    }
+
+                    DoScriptText(SAY_EVENT_FAIL_1, m_creature);
+                    m_uiSadEndTimer = 4000;
+                }
+                else if (m_uiSaveCounter + m_uiKillCounter == m_uiCurrentWave * MAX_PEASANTS)
+                {
+                    DoHandlePhaseEnd();
+                }
+            }
+        }
+
+        void DoSummonWave(uint32 uiSummonId = 0)
+        {
+            float fX, fY, fZ;
+
+            if (!uiSummonId)
+            {
+                for (uint8 i = 0; i < MAX_PEASANTS; ++i)
+                {
+                    uint32 uiSummonEntry = roll_chance_i(70) ? NPC_INJURED_PEASANT : NPC_PLAGUED_PEASANT;
+                    m_creature->GetRandomPoint(aPeasantSpawnLoc[0], aPeasantSpawnLoc[1], aPeasantSpawnLoc[2], 10.0f, fX, fY, fZ);
+                    if (Creature* pTemp = m_creature->SummonCreature(uiSummonEntry, fX, fY, fZ, 0, TEMPSUMMON_DEAD_DESPAWN, 0))
+                    {
+                        // Only the first mob needs to yell
+                        if (!i)
+                        {
+                            DoScriptText(aPeasantSpawnYells[urand(0, 2)], pTemp);
+                        }
                     }
                 }
+
+                ++m_uiCurrentWave;
             }
-
-            ++m_uiCurrentWave;
-        }
-        else if (uiSummonId == NPC_SCOURGE_FOOTSOLDIER)
-        {
-            uint8 uiRand = urand(2, 3);
-            for (uint8 i = 0; i < uiRand; ++i)
+            else if (uiSummonId == NPC_SCOURGE_FOOTSOLDIER)
             {
-                m_creature->GetRandomPoint(aPeasantSpawnLoc[0], aPeasantSpawnLoc[1], aPeasantSpawnLoc[2], 15.0f, fX, fY, fZ);
-                m_creature->SummonCreature(NPC_SCOURGE_FOOTSOLDIER, fX, fY, fZ, 0, TEMPSUMMON_DEAD_DESPAWN, 0);
-            }
-        }
-        else if (uiSummonId == NPC_SCOURGE_ARCHER)
-        {
-            for (uint8 i = 0; i < MAX_ARCHERS; ++i)
-            {
-                m_creature->SummonCreature(NPC_SCOURGE_ARCHER, aArcherSpawn[i][0], aArcherSpawn[i][1], aArcherSpawn[i][2], aArcherSpawn[i][3], TEMPSUMMON_DEAD_DESPAWN, 0);
-            }
-        }
-    }
-
-    void DoHandlePhaseEnd()
-    {
-        if (Player* pPlayer = m_creature->GetMap()->GetPlayer(m_playerGuid))
-        {
-            pPlayer->CastSpell(pPlayer, SPELL_BLESSING_OF_NORDRASSIL, true);
-        }
-
-        DoScriptText(SAY_PHASE_HEAL, m_creature);
-
-        // Send next wave
-        if (m_uiCurrentWave < 5)
-        {
-            DoSummonWave();
-        }
-    }
-
-    void DoStartBalanceEvent(Player* pPlayer)
-    {
-        m_creature->RemoveFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_QUESTGIVER);
-        m_playerGuid = pPlayer->GetObjectGuid();
-        m_uiEventTimer = 5000;
-    }
-
-    void DoBalanceEventEnd()
-    {
-        if (Player* pPlayer = m_creature->GetMap()->GetPlayer(m_playerGuid))
-        {
-            pPlayer->AreaExploredOrEventHappens(QUEST_BALANCE_OF_LIGHT_AND_SHADOW);
-        }
-
-        DoScriptText(SAY_EVENT_END, m_creature);
-        DoDespawnSummons(true);
-        EnterEvadeMode();
-    }
-
-    void DoDespawnSummons(bool bIsEventEnd = false)
-    {
-        for (GuidList::const_iterator itr = m_lSummonedGuidList.begin(); itr != m_lSummonedGuidList.end(); ++itr)
-        {
-            if (Creature* pTemp = m_creature->GetMap()->GetCreature(*itr))
-            {
-                if (bIsEventEnd && (pTemp->GetEntry() == NPC_INJURED_PEASANT || pTemp->GetEntry() == NPC_PLAGUED_PEASANT))
+                uint8 uiRand = urand(2, 3);
+                for (uint8 i = 0; i < uiRand; ++i)
                 {
-                    continue;
+                    m_creature->GetRandomPoint(aPeasantSpawnLoc[0], aPeasantSpawnLoc[1], aPeasantSpawnLoc[2], 15.0f, fX, fY, fZ);
+                    m_creature->SummonCreature(NPC_SCOURGE_FOOTSOLDIER, fX, fY, fZ, 0, TEMPSUMMON_DEAD_DESPAWN, 0);
                 }
-
-                pTemp->ForcedDespawn();
+            }
+            else if (uiSummonId == NPC_SCOURGE_ARCHER)
+            {
+                for (uint8 i = 0; i < MAX_ARCHERS; ++i)
+                {
+                    m_creature->SummonCreature(NPC_SCOURGE_ARCHER, aArcherSpawn[i][0], aArcherSpawn[i][1], aArcherSpawn[i][2], aArcherSpawn[i][3], TEMPSUMMON_DEAD_DESPAWN, 0);
+                }
             }
         }
-    }
 
-    void UpdateAI(const uint32 uiDiff) override
-    {
-        if (m_uiEventTimer)
+        void DoHandlePhaseEnd()
         {
-            if (m_uiEventTimer <= uiDiff)
+            if (Player* pPlayer = m_creature->GetMap()->GetPlayer(m_playerGuid))
             {
-                switch (m_uiPhase)
+                pPlayer->CastSpell(pPlayer, SPELL_BLESSING_OF_NORDRASSIL, true);
+            }
+
+            DoScriptText(SAY_PHASE_HEAL, m_creature);
+
+            // Send next wave
+            if (m_uiCurrentWave < 5)
+            {
+                DoSummonWave();
+            }
+        }
+
+        void DoStartBalanceEvent(Player* pPlayer)
+        {
+            m_creature->RemoveFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_QUESTGIVER);
+            m_playerGuid = pPlayer->GetObjectGuid();
+            m_uiEventTimer = 5000;
+        }
+
+        void DoBalanceEventEnd()
+        {
+            if (Player* pPlayer = m_creature->GetMap()->GetPlayer(m_playerGuid))
+            {
+                pPlayer->AreaExploredOrEventHappens(QUEST_BALANCE_OF_LIGHT_AND_SHADOW);
+            }
+
+            DoScriptText(SAY_EVENT_END, m_creature);
+            DoDespawnSummons(true);
+            EnterEvadeMode();
+        }
+
+        void DoDespawnSummons(bool bIsEventEnd = false)
+        {
+            for (GuidList::const_iterator itr = m_lSummonedGuidList.begin(); itr != m_lSummonedGuidList.end(); ++itr)
+            {
+                if (Creature* pTemp = m_creature->GetMap()->GetCreature(*itr))
                 {
+                    if (bIsEventEnd && (pTemp->GetEntry() == NPC_INJURED_PEASANT || pTemp->GetEntry() == NPC_PLAGUED_PEASANT))
+                    {
+                        continue;
+                    }
+
+                    pTemp->ForcedDespawn();
+                }
+            }
+        }
+
+        void UpdateAI(const uint32 uiDiff) override
+        {
+            if (m_uiEventTimer)
+            {
+                if (m_uiEventTimer <= uiDiff)
+                {
+                    switch (m_uiPhase)
+                    {
                     case 0:
                         DoSummonWave(NPC_SCOURGE_ARCHER);
                         m_uiEventTimer = 5000;
@@ -307,50 +311,53 @@ struct npc_eris_havenfireAI : public ScriptedAI
                         DoSummonWave(NPC_SCOURGE_FOOTSOLDIER);
                         m_uiEventTimer = urand(5000, 30000);
                         break;
+                    }
+                    ++m_uiPhase;
                 }
-                ++m_uiPhase;
+                else
+                {
+                    m_uiEventTimer -= uiDiff;
+                }
             }
-            else
+
+            // Handle event end in case of fail
+            if (m_uiSadEndTimer)
             {
-                m_uiEventTimer -= uiDiff;
+                if (m_uiSadEndTimer <= uiDiff)
+                {
+                    DoScriptText(SAY_EVENT_FAIL_2, m_creature);
+                    m_creature->ForcedDespawn(5000);
+                    DoDespawnSummons();
+                    m_uiSadEndTimer = 0;
+                }
+                else
+                {
+                    m_uiSadEndTimer -= uiDiff;
+                }
+            }
+        }
+    };
+
+    CreatureAI* GetAI(Creature* pCreature) override
+    {
+        return new npc_eris_havenfireAI(pCreature);
+    }
+
+    bool OnQuestAccept(Player* pPlayer, Creature* pCreature, const Quest* pQuest) override
+    {
+        if (pQuest->GetQuestId() == QUEST_BALANCE_OF_LIGHT_AND_SHADOW)
+        {
+            if (npc_eris_havenfireAI* pErisAI = dynamic_cast<npc_eris_havenfireAI*>(pCreature->AI()))
+            {
+                pErisAI->DoStartBalanceEvent(pPlayer);
+                return true;
             }
         }
 
-        // Handle event end in case of fail
-        if (m_uiSadEndTimer)
-        {
-            if (m_uiSadEndTimer <= uiDiff)
-            {
-                DoScriptText(SAY_EVENT_FAIL_2, m_creature);
-                m_creature->ForcedDespawn(5000);
-                DoDespawnSummons();
-                m_uiSadEndTimer = 0;
-            }
-            else
-            {
-                m_uiSadEndTimer -= uiDiff;
-            }
-        }
+        return false;
     }
 };
 
-CreatureAI* GetAI_npc_eris_havenfire(Creature* pCreature)
-{
-    return new npc_eris_havenfireAI(pCreature);
-}
-
-bool QuestAccept_npc_eris_havenfire(Player* pPlayer, Creature* pCreature, const Quest* pQuest)
-{
-    if (pQuest->GetQuestId() == QUEST_BALANCE_OF_LIGHT_AND_SHADOW)
-    {
-        if (npc_eris_havenfireAI* pErisAI = dynamic_cast<npc_eris_havenfireAI*>(pCreature->AI()))
-        {
-            pErisAI->DoStartBalanceEvent(pPlayer);
-        }
-    }
-
-    return true;
-}
 
 
 
@@ -444,9 +451,10 @@ uint32 uCurrentPhase = 0;  // see above fot the different phases of the battle
 
 
 
+
 void SpawnScourgeCreature(Unit* pUnit, uint32 NPC_TYPE, uint32 uGroup)
 {
-    // alter spawn points slighlty
+    // alter spawn points slightly
     float fSpawnPointX = aDarrowshireScourgeLocation[uGroup].m_fX + rand() % 5;
     float fSpawnPointY = aDarrowshireScourgeLocation[uGroup].m_fY + rand() % 5;
 
@@ -455,11 +463,43 @@ void SpawnScourgeCreature(Unit* pUnit, uint32 NPC_TYPE, uint32 uGroup)
 
 void SpawnAllianceCreature(Unit* pUnit, uint32 NPC_TYPE, uint32 uGroup)
 {
-    // alter spawn points slighlty
+    // alter spawn points slightly
     float fSpawnPointX = aDarrowshireAllianceLocation[uGroup].m_fX + rand() % 5;
     float fSpawnPointY = aDarrowshireAllianceLocation[uGroup].m_fY + rand() % 5;
 
     Creature* pCreature = pUnit->SummonCreature(NPC_TYPE, fSpawnPointX, fSpawnPointY, aDarrowshireAllianceLocation[uGroup].m_fZ, aDarrowshireAllianceLocation[uGroup].m_fO, TEMPSUMMON_CORPSE_TIMED_DESPAWN, 60000);
+}
+
+
+void SpawnScourge(Unit* pUnit, uint32 uGroup)
+{
+    // Randomly choose the number of Scourge to spawn (2 or 3)
+    uint32 uTotalToSpawn = rand() % 2 + 2;
+    for (int iCount = 0; iCount < uTotalToSpawn; iCount++)
+    {
+        // randomly choose which Scourge mob to spawn
+        uint32 uScourgeType = rand() % 2;
+
+        switch (uScourgeType)
+        {
+        case 0:
+            SpawnScourgeCreature(pUnit, NPC_MARAUDING_SKELETON, uGroup);
+            break;
+        default:
+            SpawnScourgeCreature(pUnit, NPC_MARAUDING_CORPSE, uGroup);
+            break;
+        }
+    }
+}
+
+void SpawnAlliance(Unit* pUnit, uint32 uGroup)
+{
+    // Randmomly choose the number of Alliance to spawn (2 or 3)
+    uint32 uTotalToSpawn = rand() % 2 + 2;
+    for (int iCount = 0; iCount < uTotalToSpawn; iCount++)
+    {
+        SpawnAllianceCreature(pUnit, NPC_DARROWSHIRE_DEFENDER, uGroup);
+    }
 }
 
 
@@ -497,64 +537,48 @@ void SpawnFirstWave(Player* pPlayer)
     }
 }
 
-void SpawnScourge(Unit* pUnit, uint32 uGroup)
-{
-    // Randomly choose the number of Scourge to spawn (2 or 3)
-    uint32 uTotalToSpawn = rand() % 2 + 2;
-    for (int iCount = 0; iCount < uTotalToSpawn; iCount++)
-    {
-        // randomly choose which Scourge mob to spawn
-        uint32 uScourgeType = rand() % 2;
 
-        switch (uScourgeType)
-        {
-        case 0:
-            SpawnScourgeCreature(pUnit, NPC_MARAUDING_SKELETON, uGroup);
-            break;
-        default:
-            SpawnScourgeCreature(pUnit, NPC_MARAUDING_CORPSE, uGroup);
-            break;
-        }
-    }
-}
 
-void SpawnAlliance(Unit* pUnit, uint32 uGroup)
-{
-    // Randmomly choose the number of Alliance to spawn (2 or 3)
-    uint32 uTotalToSpawn = rand() % 2 + 2;
-    for (int iCount = 0; iCount < uTotalToSpawn; iCount++)
-    {
-        SpawnAllianceCreature(pUnit, NPC_DARROWSHIRE_DEFENDER, uGroup);
-    }
-}
 
-void SpawnSingleCreatureInEachGroup(Unit* pUnit)
+struct go_relic_bundle : public GameObjectScript
 {
-    if (pUnit->GetEntry() == NPC_DARROWSHIRE_DEFENDER)
-    {
-        for (int iGroup = 0; iGroup < 4; iGroup++)
-            SpawnScourge(pUnit, iGroup);
-    }
-    else
-    {
-        for (int iGroup = 0; iGroup < 4; iGroup++)
-            SpawnAlliance(pUnit, iGroup);
-    }
-}
+    go_relic_bundle() : GameObjectScript("go_relic_bundle") {}	
+	
 
-void SpawnCreature(Creature* m_creature, uint32 uiCreature)
-{
-    float fCreatureX;
-    float fCreatureY;
-    float fCreatureZ;
-    m_creature->GetPosition(fCreatureX, fCreatureY, fCreatureZ);
-    // Randomly choose the number of Scourge to spawn (2 or 3)
-    uint32 uiTotalToSpawn = rand() % 4 + 3;
-    for (int iCount = 0; iCount < uiTotalToSpawn; iCount++)
+    bool OnUse(Player* pPlayer, GameObject* pGo) override
     {
-        m_creature->SummonCreature(uiCreature, fCreatureX, fCreatureY, fCreatureZ, 1.0f, TEMPSUMMON_CORPSE_TIMED_DESPAWN, 600000);
-    }
-}
+		// make sure the event is not currently running
+		if (!EVENT_BATTLE_OF_DARROWSHIRE)
+		{
+			GROUP_TO_SPAWN_TO = 1;
+			EVENT_BATTLE_OF_DARROWSHIRE = true; // this is set back to false once the player interacts with Redpath
+			// Spawn Darrowshire Defender
+			Creature* pDarrowshireDefender = pPlayer->SummonCreature(NPC_DARROWSHIRE_DEFENDER, 1444.09f, -3699.77f, 77.30f, 0.47f, TEMPSUMMON_CORPSE_TIMED_DESPAWN, 7200000);
+			// send him on his merry way
+			pDarrowshireDefender->GetMotionMaster()->MovePoint(0, 1451.54f, -3694.28f, 76.76f);
+			// yell “Darrowshire, to arms! The Scourge approach!”
+			pDarrowshireDefender->MonsterYell("Darrowshire, to arms! The Scourge approach!", LANG_COMMON, NULL);
+			// continue on route
+			pDarrowshireDefender->GetMotionMaster()->MovePoint(0, 1467.15f, -3686.50f, 77.57f);
+			pDarrowshireDefender->GetMotionMaster()->MovePoint(0, 1483.31f, -3678.11f, 79.62f);
+			pDarrowshireDefender->GetMotionMaster()->MoveIdle();
+
+			// spawn First Wave (Marauder Skeletons and Marauder Corpses)
+			SpawnFirstWave(pPlayer);
+		}
+		else // output that the event is currently running
+			pPlayer->MonsterTextEmote("Cannot do that, as the Battle is currently in progress", pPlayer, false);
+
+		// Start the timer that will spawn David Lightfire + Silver Hand Disciples
+		m_uPhase2Timer = 60000; // 1 minute ???
+		uCurrentPhase = PHASE_1;
+		
+		return true;
+		
+	}
+	
+};
+
 
 Creature* LocateEnemy(Creature* m_creature)
 {
@@ -598,29 +622,6 @@ Creature* LocateEnemy(Creature* m_creature)
     return NULL; // enemy not found
 }
 
-
-Creature* LocateFriendly(Creature* m_creature, float fRange)
-{
-    switch (m_creature->GetEntry())
-    {
-    case NPC_DAVIL_LIGHTFIRE:
-        // attempt to locate friendly       
-        if (Creature* pFriendly = GetClosestCreatureWithEntry(m_creature, NPC_SILVER_HAND_DISCIPLE, fRange))
-        {
-            return pFriendly;
-        }
-        break;
-    case NPC_HORGUS_THE_RAVAGER:
-        // attempt to locate friendly       
-        if (Creature* pFriendly = GetClosestCreatureWithEntry(m_creature, NPC_SERVANT_OF_HORGUS, fRange))
-        {
-            return pFriendly;
-        }
-        break;
-    }
-
-    return NULL; // friendly not found
-}
 
 // This assigns a recently spawned creature to a group, based on it proximity to the spawn locations of the group to its currently location.
 // It will fight as part of that group.
@@ -703,403 +704,125 @@ uint32 AssignCreatureToGroup(Unit* m_creature)
 
 }
 
-
-
-struct npc_darrowshire_defenderAI : public ScriptedAI
+void SpawnSingleCreatureInEachGroup(Unit* pUnit)
 {
-    npc_darrowshire_defenderAI(Creature* pCreature) : ScriptedAI(pCreature)
+    if (pUnit->GetEntry() == NPC_DARROWSHIRE_DEFENDER)
     {
-        Reset();
+        for (int iGroup = 0; iGroup < 4; iGroup++)
+            SpawnScourge(pUnit, iGroup);
     }
-
-    uint32 uGroup;
-
-    void Reset() override
+    else
     {
-        // assign creature to group
-        uGroup = AssignCreatureToGroup(m_creature);
+        for (int iGroup = 0; iGroup < 4; iGroup++)
+            SpawnAlliance(pUnit, iGroup);
     }
+}
 
-    void UpdateAI(const uint32 uiDiff) override
+struct npc_darrowshire_defender : public CreatureScript
+{
+    npc_darrowshire_defender() : CreatureScript("npc_darrowshire_defender") {}
+
+    struct npc_darrowshire_defenderAI : public ScriptedAI
     {
-        if (!m_creature->SelectHostileTarget() || !m_creature->getVictim())
-        {
-            // locate another enemy
-            Creature* pEnemy = LocateEnemy(m_creature);
-            if (pEnemy)
-            {
-                // Move to and engage enemy in combat
-                m_creature->SetWalk(false, true); // run!
-                m_creature->GetMotionMaster()->MovePoint(0, pEnemy->GetPositionX() - 1, pEnemy->GetPositionY() - 1, pEnemy->GetPositionZ());
-            }
-            else // no enemies found
-            {
-                uint32 uSpawn = rand() % 50;
-                // spawn Scourge
-                if (uSpawn == 0)
-                {
-                    uSpawn = rand() % 10;
-                    // spawn Scourge
-                    if (uSpawn == 0)
-                    {
-                        SpawnSingleCreatureInEachGroup(m_creature);
-                    }
-                    SpawnScourge(m_creature, uGroup);
-                }
+        npc_darrowshire_defenderAI(Creature* pCreature) : ScriptedAI(pCreature)
+		{
+			Reset();
+		}
 
-            }
+		uint32 uGroup;
 
-            return;
-        }
-        
-        if (m_creature->isAttackReady())
-        {
-            uint32 uiAttackAnilityToUse = rand() % 4;
-            if (uiAttackAnilityToUse == 0) // use shield block about 25% of the time
-            {
-                m_creature->CastSpell(m_creature->getVictim(), SPELL_SHIELD_BLOCK, true);
-            }
-            else
-                m_creature->CastSpell(m_creature->getVictim(), SPELL_CAST_STRIKE, true);
-            m_creature->resetAttackTimer();
-        }
+		void Reset() override
+		{
+			// assign creature to group
+			uGroup = AssignCreatureToGroup(m_creature);
+		}
 
-        // Phase 2 - spawning of David Lightfire
-        if (uCurrentPhase == PHASE_1 && uGroup == GROUP_1) // only allow group 1 to be in control of the spawning of Lightfire
-        {
-            // has the 1 minute timer expired?
-            if (m_uPhase2Timer < uiDiff)
-            {
-                // spawn David Lightfire
-                m_creature->SummonCreature(NPC_DAVIL_LIGHTFIRE, aDarrowshireAllianceLocation[4].m_fX, aDarrowshireAllianceLocation[4].m_fY, aDarrowshireAllianceLocation[4].m_fZ, aDarrowshireAllianceLocation[4].m_fO, TEMPSUMMON_CORPSE_TIMED_DESPAWN, 7200000);
-                uCurrentPhase = PHASE_2;
-            }
-            else
-            {
-                m_uPhase2Timer -= uiDiff;
-            }
-        }
+		void UpdateAI(const uint32 uiDiff)
+		{
+			if (!m_creature->SelectHostileTarget() || !m_creature->getVictim())
+			{
+				// locate another enemy
+				Creature* pEnemy = LocateEnemy(m_creature);
+				if (pEnemy)
+				{
+					// Move to and engage enemy in combat
+					m_creature->SetWalk(false, true); // run!
+					m_creature->GetMotionMaster()->MovePoint(0, pEnemy->GetPositionX() - 1, pEnemy->GetPositionY() - 1, pEnemy->GetPositionZ());
+				}
+				else // no enemies found
+				{
+					uint32 uSpawn = rand() % 50;
+					// spawn Scourge
+					if (uSpawn == 0)
+					{
+						uSpawn = rand() % 10;
+						// spawn Scourge
+						if (uSpawn == 0)
+						{
+							SpawnSingleCreatureInEachGroup(m_creature);
+						}
+						SpawnScourge(m_creature, uGroup);
+					}
+
+				}
+
+				return;
+			}
+			
+			if (m_creature->isAttackReady())
+			{
+				uint32 uiAttackAnilityToUse = rand() % 4;
+				if (uiAttackAnilityToUse == 0) // use shield block about 25% of the time
+				{
+					m_creature->CastSpell(m_creature->getVictim(), SPELL_SHIELD_BLOCK, true);
+				}
+				else
+					m_creature->CastSpell(m_creature->getVictim(), SPELL_CAST_STRIKE, true);
+				m_creature->resetAttackTimer();
+			}
+
+			// Phase 2 - spawning of David Lightfire
+			if (uCurrentPhase == PHASE_1 && uGroup == GROUP_1) // only allow group 1 to be in control of the spawning of Lightfire
+			{
+				// has the 1 minute timer expired?
+				if (m_uPhase2Timer < uiDiff)
+				{
+					// spawn David Lightfire
+					m_creature->SummonCreature(NPC_DAVIL_LIGHTFIRE, aDarrowshireAllianceLocation[4].m_fX, aDarrowshireAllianceLocation[4].m_fY, aDarrowshireAllianceLocation[4].m_fZ, aDarrowshireAllianceLocation[4].m_fO, TEMPSUMMON_CORPSE_TIMED_DESPAWN, 7200000);
+					uCurrentPhase = PHASE_2;
+				}
+				else
+				{
+					m_uPhase2Timer -= uiDiff;
+				}
+			}
+		}
+		
+	};
+
+	
+    CreatureAI* GetAI(Creature* pCreature) override
+    {
+        return new npc_darrowshire_defenderAI(pCreature);
     }
+	
 };
 
-CreatureAI* GetAI_npc_darrowshire_defender(Creature* pCreature)
-{
-    return new npc_darrowshire_defenderAI(pCreature);
-}
 
-// this is for the marauding skeletons and marauding corpses
-struct npc_marauding_scourgeAI : public ScriptedAI
-{
-    npc_marauding_scourgeAI(Creature* pCreature) : ScriptedAI(pCreature)
-    {
-        Reset();
-    }
-
-    uint32 uGroup;
-
-    void Reset() override
-    {
-        // assign creature to group
-        uGroup = AssignCreatureToGroup(m_creature);
-    }
-
-    void UpdateAI(const uint32 /*diff*/) override
-    {
-        if (!m_creature->SelectHostileTarget() || !m_creature->getVictim())
-        {
-            // locate another enemy
-            Creature* pEnemy = LocateEnemy(m_creature);
-            if (pEnemy)
-            {
-                // Move to and engage enemy in combat
-                m_creature->SetWalk(false, true); // run!
-                m_creature->GetMotionMaster()->MovePoint(0, pEnemy->GetPositionX() - 1, pEnemy->GetPositionY() - 1, pEnemy->GetPositionZ());
-            }
-            else // no enemies found
-            {
-                uint32 uSpawn = rand() % 50;
-                // spawn Scourge
-                if (uSpawn == 0)
-                {
-                    uSpawn = rand() % 10;
-                    // spawn Scourge
-                    if (uSpawn == 0)
-                    {
-                        SpawnSingleCreatureInEachGroup(m_creature);
-                    }
-                    SpawnAlliance(m_creature, uGroup);
-                }
-
-            }
-
-            return;
-        }
-
-        if (m_creature->isAttackReady())
-        {
-            m_creature->CastSpell(m_creature->getVictim(), SPELL_CAST_STRIKE, true);
-            m_creature->resetAttackTimer();
-        }
-
-    }
-
-};
-
-CreatureAI* GetAI_npc_marauding_scourge(Creature* pCreature)
-{
-    return new npc_marauding_scourgeAI(pCreature);
-}
-
-
-struct npc_davil_lightfireAI : public ScriptedAI
-{
-    npc_davil_lightfireAI(Creature* pCreature) : ScriptedAI(pCreature)
-    {
-        Reset();
-    }
-
-    void Reset() override
-    {
-        // Start the timer that will spawn Horgus the Ravager
-        m_uPhase3Timer = 90000; // not really 90 seconds
-    }
-
-    void Aggro(Unit* pWho) override
-    {
-        // Activate Devotion Aura
-        if (!m_creature->HasAura(SPELL_CAST_DEVOTION_AURA))
-        {
-            m_creature->CastSpell(m_creature, SPELL_CAST_DEVOTION_AURA, true);
-        }
-    }
-
-    void UpdateAI(const uint32 uiDiff) override
-    {
-        // check for Silver hand Disciples
-        Creature* pFriendly = LocateFriendly(m_creature, 100.0f);
-        if (pFriendly)
-        {
-        }
-        else
-        {
-            // spawn adds
-            uint32 uiSpawn = rand() % 2;
-            if (uiSpawn == 0)
-            {
-                SpawnCreature(m_creature, NPC_SILVER_HAND_DISCIPLE);
-            }
-
-        }
-
-        if (!m_creature->SelectHostileTarget() || !m_creature->getVictim())
-        {
-            // locate another enemy
-            Creature* pEnemy = LocateEnemy(m_creature);
-            if (pEnemy)
-            {
-                // Move to and engage enemy in combat
-                m_creature->SetWalk(false, true); // run!
-                m_creature->GetMotionMaster()->MovePoint(0, pEnemy->GetPositionX() - 1, pEnemy->GetPositionY() - 1, pEnemy->GetPositionZ());
-            }
-            else // no enemies found
-            {
-            }
-
-            return;
-        }
-
-        if (m_creature->isAttackReady())
-        {
-            uint32 uiAttackAnilityToUse = rand() % 4;
-            if (uiAttackAnilityToUse == 0) // use  Hammer of Justice about 25% of the time
-            {
-                m_creature->CastSpell(m_creature->getVictim(), SPELL_CAST_HAMMER_OF_JUSTICE, true);
-            }
-            else
-                m_creature->CastSpell(m_creature->getVictim(), SPELL_CAST_HOLY_STRIKE, true);
-            m_creature->resetAttackTimer();
-        }
-
-        // Phase 3 - spawning of Horgus the Raveger
-        if (uCurrentPhase == PHASE_2) // spawning can only occur during PHASE 2
-        {
-            // has the timer expired?
-            if (m_uPhase2Timer < uiDiff)
-            {
-                // spawn Horgus the Raveger
-                m_creature->SummonCreature(NPC_HORGUS_THE_RAVAGER, aDarrowshireScourgeLocation[4].m_fX, aDarrowshireScourgeLocation[4].m_fY, aDarrowshireScourgeLocation[4].m_fZ, aDarrowshireScourgeLocation[4].m_fO, TEMPSUMMON_CORPSE_TIMED_DESPAWN, 7200000);
-                uCurrentPhase = PHASE_3;
-            }
-            else
-            {
-                m_uPhase2Timer -= uiDiff;
-            }
-        }
-    }
-
-};
-
-CreatureAI* GetAI_npc_davil_lightfire(Creature* pCreature)
-{
-    return new npc_davil_lightfireAI(pCreature);
-}
-
-
-struct silver_hand_discipleAI : public ScriptedAI
-{
-    silver_hand_discipleAI(Creature* pCreature) : ScriptedAI(pCreature)
-    {
-        Reset();
-    }
-
-    void Reset() override
-    {
-    }
-
-    void UpdateAI(const uint32 /*diff*/) override
-    {
-        if (!m_creature->SelectHostileTarget() || !m_creature->getVictim())
-        {
-            // locate another enemy
-            Creature* pEnemy = LocateEnemy(m_creature);
-            if (pEnemy)
-            {
-                // Move to and engage enemy in combat
-                m_creature->SetWalk(false, true); // run!
-                m_creature->GetMotionMaster()->MovePoint(0, pEnemy->GetPositionX() - 1, pEnemy->GetPositionY() - 1, pEnemy->GetPositionZ());
-            }
-            else // no enemies found
-            {
-            }
-
-            return;
-        }
-
-        if (m_creature->isAttackReady())
-        {
-            m_creature->CastSpell(m_creature->getVictim(), SPELL_CAST_CRUSADER_STRIKE, true);
-            m_creature->resetAttackTimer();
-        }
-    }
-
-};
-
-CreatureAI* GetAI_npc_silver_hand_disciple(Creature* pCreature)
-{
-    return new silver_hand_discipleAI(pCreature);
-}
-
-
-struct npc_horgus_the_ravagerAI : public ScriptedAI
-{
-    npc_horgus_the_ravagerAI(Creature* pCreature) : ScriptedAI(pCreature)
-    {
-        Reset();
-    }
-
-    void Reset() override
-    {
-    }
-
-    void UpdateAI(const uint32 /*diff*/) override
-    {
-        // check for Servants of Horgus
-        Creature* pFriendly = LocateFriendly(m_creature, 100.0f);
-        if (pFriendly)
-        {
-        }
-        else
-        {
-            // spawn adds
-            uint32 uiSpawn = rand() % 2;
-            if (uiSpawn == 0)
-            {
-                SpawnCreature(m_creature, NPC_SERVANT_OF_HORGUS);
-            }
-
-        }
-
-        // combat working for Horgus, therefore no need to script it
-
-    }
-
-};
-
-CreatureAI* GetAI_npc_horgus_the_ravager(Creature* pCreature)
-{
-    return new npc_horgus_the_ravagerAI(pCreature);
-}
-
-// start off the Battle of Darrowshire raid event
-bool GOUse_go_relic_bundle(Player* pPlayer, GameObject* pGo)
-{
-    // make sure the event is not currently running
-    if (!EVENT_BATTLE_OF_DARROWSHIRE)
-    {
-        GROUP_TO_SPAWN_TO = 1;
-        EVENT_BATTLE_OF_DARROWSHIRE = true; // this is set back to false once the player interacts with Redpath
-        // Spawn Darrowshire Defender
-        Creature* pDarrowshireDefender = pPlayer->SummonCreature(NPC_DARROWSHIRE_DEFENDER, 1444.09f, -3699.77f, 77.30f, 0.47f, TEMPSUMMON_CORPSE_TIMED_DESPAWN, 7200000);
-        // send him on his merry way
-        pDarrowshireDefender->GetMotionMaster()->MovePoint(0, 1451.54f, -3694.28f, 76.76f);
-        // yell “Darrowshire, to arms! The Scourge approach!”
-        pDarrowshireDefender->MonsterYell("Darrowshire, to arms! The Scourge approach!", LANG_COMMON, NULL);
-        // continue on route
-        pDarrowshireDefender->GetMotionMaster()->MovePoint(0, 1467.15f, -3686.50f, 77.57f);
-        pDarrowshireDefender->GetMotionMaster()->MovePoint(0, 1483.31f, -3678.11f, 79.62f);
-        pDarrowshireDefender->GetMotionMaster()->MoveIdle();
-
-        // spawn First Wave (Marauder Skeletons and Marauder Corpses)
-        SpawnFirstWave(pPlayer);
-    }
-    else // output that the event is currently running
-        pPlayer->MonsterTextEmote("Cannot do that, as the Battle is currently in progress", pPlayer, false);
-
-    // Start the timer that will spawn David Lightfire + Silver Hand Disciples
-    m_uPhase2Timer = 60000; // 1 minute ???
-    uCurrentPhase = PHASE_1;
-
-    return true;
-}
 
 void AddSC_eastern_plaguelands()
 {
-    Script* pNewScript;
+    Script* s;
+    s = new npc_eris_havenfire();
+    s->RegisterSelf();
+    s = new go_relic_bundle();
+    s->RegisterSelf();
+    s = new npc_darrowshire_defender();
+    s->RegisterSelf();
 
-    pNewScript = new Script;
-    pNewScript->Name = "npc_eris_havenfire";
-    pNewScript->GetAI = &GetAI_npc_eris_havenfire;
-    pNewScript->pQuestAcceptNPC = &QuestAccept_npc_eris_havenfire;
-    pNewScript->RegisterSelf();
-
-    // Battle of Darrowshire
-    pNewScript = new Script;
-    pNewScript->Name = "go_relic_bundle";
-    pNewScript->pGOUse =  &GOUse_go_relic_bundle;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "npc_darrowshire_defender";
-    pNewScript->GetAI = &GetAI_npc_darrowshire_defender;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "npc_marauding_scourge";
-    pNewScript->GetAI = &GetAI_npc_marauding_scourge;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "npc_davil_lightfire";
-    pNewScript->GetAI = &GetAI_npc_davil_lightfire;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "npc_silver_hand_disciple";
-    pNewScript->GetAI = &GetAI_npc_silver_hand_disciple;
-    pNewScript->RegisterSelf();
-
-    pNewScript = new Script;
-    pNewScript->Name = "npc_horgus_the_ravager";
-    pNewScript->GetAI = &GetAI_npc_horgus_the_ravager;
-    pNewScript->RegisterSelf();
+    //pNewScript = new Script;
+    //pNewScript->Name = "npc_eris_havenfire";
+    //pNewScript->GetAI = &GetAI_npc_eris_havenfire;
+    //pNewScript->pQuestAcceptNPC = &QuestAccept_npc_eris_havenfire;
+    //pNewScript->RegisterSelf();
 }
