@@ -746,8 +746,8 @@ struct npc_darrowshire_defender : public CreatureScript
 				if (pEnemy)
 				{
 					// Move to and engage enemy in combat
-					m_creature->SetWalk(false, true); // run!
-					m_creature->GetMotionMaster()->MovePoint(0, pEnemy->GetPositionX() - 1, pEnemy->GetPositionY() - 1, pEnemy->GetPositionZ());
+	//				m_creature->SetWalk(false, true); // run!
+	//				m_creature->GetMotionMaster()->MovePoint(0, pEnemy->GetPositionX() - 1, pEnemy->GetPositionY() - 1, pEnemy->GetPositionZ());
 				}
 				else // no enemies found
 				{
@@ -808,6 +808,75 @@ struct npc_darrowshire_defender : public CreatureScript
 	
 };
 
+struct npc_marauding_scourge : public CreatureScript
+{
+    npc_marauding_scourge() : CreatureScript("npc_marauding_scourge") {}
+
+    struct npc_marauding_scourgeAI : public ScriptedAI
+    {
+        npc_marauding_scourgeAI(Creature* pCreature) : ScriptedAI(pCreature)
+		{
+			Reset();
+		}
+
+		uint32 uGroup;
+
+		void Reset() override
+		{
+			// assign creature to group
+			uGroup = AssignCreatureToGroup(m_creature);
+		}
+
+		void UpdateAI(const uint32 uiDiff)
+		{
+			if (!m_creature->SelectHostileTarget() || !m_creature->getVictim())
+			{
+				// locate another enemy
+				Creature* pEnemy = LocateEnemy(m_creature);
+				if (pEnemy)
+				{
+					// Move to and engage enemy in combat
+		//			m_creature->SetWalk(false, true); // run!
+		//			m_creature->GetMotionMaster()->MovePoint(0, pEnemy->GetPositionX() - 1, pEnemy->GetPositionY() - 1, pEnemy->GetPositionZ());
+				}
+				else // no enemies found
+				{
+					uint32 uSpawn = rand() % 50;
+					// spawn Scourge
+					if (uSpawn == 0)
+					{
+						uSpawn = rand() % 10;
+						// spawn Scourge
+						if (uSpawn == 0)
+						{
+							SpawnSingleCreatureInEachGroup(m_creature);
+						}
+						SpawnScourge(m_creature, uGroup);
+					}
+
+				}
+
+				return;
+			}
+			
+			if (m_creature->isAttackReady())
+			{
+				m_creature->CastSpell(m_creature->getVictim(), SPELL_CAST_STRIKE, true);
+				m_creature->resetAttackTimer();
+			}
+			
+		}
+		
+	};
+
+	
+    CreatureAI* GetAI(Creature* pCreature) override
+    {
+        return new npc_marauding_scourgeAI(pCreature);
+    }
+	
+};
+
 
 
 void AddSC_eastern_plaguelands()
@@ -818,6 +887,8 @@ void AddSC_eastern_plaguelands()
     s = new go_relic_bundle();
     s->RegisterSelf();
     s = new npc_darrowshire_defender();
+    s->RegisterSelf();
+    s = new npc_marauding_scourge();
     s->RegisterSelf();
 
     //pNewScript = new Script;
