@@ -130,26 +130,31 @@ struct mob_yenniku : public CreatureScript
 
 /*######
 ## Night time event where the creatures sleep
+## Only certain tigers and panthers actually have a sleeping animation/stance
+## 
+## TIGERS: Stranglethorn Tigress (772), Stranglethorn Tiger (682),  Young Stranglethorn Tiger (681),  Elder Stranglethorn Tiger (1085) 
+## PANTHERS: Shadowmaw Panther (684), Elder Shadowmaw Panther (1713),  Young Panther (683),  Panther (736) 
 ######*/
 
-struct mob_creature : public CreatureScript
+struct mob_sleeping_creature : public CreatureScript
 {        
-    mob_creature() : CreatureScript("mob_creature") {}
+	mob_sleeping_creature() : CreatureScript("mob_sleeping_creature") {}
 
-    struct mob_creatureAI : public ScriptedAI
+	struct mob_sleeping_creatureAI : public ScriptedAI
     {
-        mob_creatureAI(Creature* pCreature) : ScriptedAI(pCreature) { }   
+		mob_sleeping_creatureAI(Creature* pCreature) : ScriptedAI(pCreature) { }
 
         void Reset() override {  }
 
 		void UpdateAI(const uint32 uiDiff)
 		{
+			// no point checking for nearby creatures if the creature is in combat
 			if (!m_creature->IsInCombat())
 			{
 				// go to sleep if it is night time (9pm to 5am)
 				time_t t = sWorld.GetGameTime();
 				struct tm *tmp = gmtime(&t);
-				if (tmp->tm_hour >= 8 || tmp->tm_hour < 5)
+				if (tmp->tm_hour >= 21 || tmp->tm_hour < 5)
 				{
 					// search area for nearby player characters
 					Map::PlayerList const& players = m_creature->GetMap()->GetPlayers();
@@ -157,6 +162,7 @@ struct mob_creature : public CreatureScript
 					{
 						if (Player* pPlayer = itr->getSource())
 						{
+							// ignore Game Master characters
 							if (pPlayer->isGameMaster())
 								break;
 							// Acquire player's coordinates
@@ -164,8 +170,8 @@ struct mob_creature : public CreatureScript
 							float fPlayerYposition = pPlayer->GetPositionY();
 							float fPlayerZposition = pPlayer->GetPositionZ();
 
-							// Check if player is near the creature
-							// If a player is near, then we do not need to check other player locations, therefore stop checking - break out of this
+							// Check if the player is near the creature
+							// If a player is nearby, then we do not need to check other player locations, therefore stop checking - break out of this
 							if (pPlayer->IsNearWaypoint(fPlayerXposition, fPlayerYposition, fPlayerZposition, m_creature->GetPositionX(), m_creature->GetPositionY(), m_creature->GetPositionZ(), 4, 4, 4))
 							{
 								m_creature->SetStandState(UNIT_STAND_STATE_STAND);
@@ -173,24 +179,22 @@ struct mob_creature : public CreatureScript
 							}
 						}
 					}
-					// send the creature to sleep
+					// no players nearby, therefore send the creature to sleep
 					m_creature->SetStandState(UNIT_STAND_STATE_SLEEP);
 					m_creature->GetMotionMaster()->MoveIdle();
 
 				}
 			}
 
+			// no player character around, therefore exit script
 			if (!m_creature->SelectHostileTarget() || !m_creature->getVictim())
-			{
 				return;
-			}
 
+			// player is nearby, therefore move in and engage them in combat
 			m_creature->GetMotionMaster()->MoveChase(m_creature->getVictim());
-
 			if (m_creature->isAttackReady())
 			{
 				DoMeleeAttackIfReady();
-
 				m_creature->resetAttackTimer();
 			}
 
@@ -200,7 +204,7 @@ struct mob_creature : public CreatureScript
 		
     CreatureAI* GetAI(Creature* pCreature) override
     {
-        return new mob_creatureAI(pCreature);
+		return new mob_sleeping_creatureAI(pCreature);
     }
 };
 
@@ -214,7 +218,7 @@ void AddSC_stranglethorn_vale()
     Script* s;
     s = new mob_yenniku();
     s->RegisterSelf();
-    s = new mob_creature();
+    s = new mob_sleeping_creature();
     s->RegisterSelf();
 
     //pNewScript = new Script;

@@ -851,7 +851,7 @@ struct npc_marauding_scourge : public CreatureScript
 						{
 							SpawnSingleCreatureInEachGroup(m_creature);
 						}
-						SpawnScourge(m_creature, uGroup);
+						SpawnAlliance(m_creature, uGroup);
 					}
 
 				}
