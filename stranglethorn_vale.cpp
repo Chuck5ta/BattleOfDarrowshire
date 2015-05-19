@@ -136,67 +136,105 @@ struct mob_yenniku : public CreatureScript
 ## PANTHERS: Shadowmaw Panther (684), Elder Shadowmaw Panther (1713),  Young Panther (683),  Panther (736) 
 ######*/
 
+enum
+{
+    START_SLEEPING = 21, // 24 hour clock, therefore 21 = 9pm
+    END_SLEEPING = 5     // 5 = 5am
+};
+
 struct mob_sleeping_creature : public CreatureScript
 {        
-	mob_sleeping_creature() : CreatureScript("mob_sleeping_creature") {}
+	   mob_sleeping_creature() : CreatureScript("mob_sleeping_creature") {}
 
-	struct mob_sleeping_creatureAI : public ScriptedAI
+    struct mob_sleeping_creatureAI : public ScriptedAI
     {
-		mob_sleeping_creatureAI(Creature* pCreature) : ScriptedAI(pCreature) { }
+        mob_sleeping_creatureAI(Creature* pCreature) : ScriptedAI(pCreature) 
+        { 
+            Reset(); 
+        }
+        
+        uint16 uSleepTime;
+        float fSpawnPositionX;
+        float fSpawnPositionY;
+        float fSpawnPositionZ;
 
-        void Reset() override {  }
+        void Reset() override 
+        {
+            uSleepTime = 0;
+            // acquire coordinates, so that the creature does not wander too far from spawn point
+            fSpawnPositionX = m_creature->GetPositionX();
+            fSpawnPositionY = m_creature->GetPositionY();
+            fSpawnPositionZ = m_creature->GetPositionZ();
+        }
 
-		void UpdateAI(const uint32 uiDiff)
-		{
-			// no point checking for nearby creatures if the creature is in combat
-			if (!m_creature->IsInCombat())
-			{
-				// go to sleep if it is night time (9pm to 5am)
-				time_t t = sWorld.GetGameTime();
-				struct tm *tmp = gmtime(&t);
-				if (tmp->tm_hour >= 21 || tmp->tm_hour < 5)
-				{
-					// search area for nearby player characters
-					Map::PlayerList const& players = m_creature->GetMap()->GetPlayers();
-					for (Map::PlayerList::const_iterator itr = players.begin(); itr != players.end(); ++itr)
-					{
-						if (Player* pPlayer = itr->getSource())
-						{
-							// ignore Game Master characters
-							if (pPlayer->isGameMaster())
-								break;
-							// Acquire player's coordinates
-							float fPlayerXposition = pPlayer->GetPositionX();
-							float fPlayerYposition = pPlayer->GetPositionY();
-							float fPlayerZposition = pPlayer->GetPositionZ();
+        void UpdateAI(const uint32 uiDiff)
+        {
+            // no point checking for nearby creatures if the creature is in combat
+            if (!m_creature->IsInCombat())
+            {
+                // go to sleep if it is night time (9pm to 5am)
+                time_t t = sWorld.GetGameTime();
+                struct tm *tmp = gmtime(&t);
+                if (tmp->tm_hour >= START_SLEEPING || tmp->tm_hour < END_SLEEPING)
+                {
+                    // search area for nearby player characters
+                    Map::PlayerList const& players = m_creature->GetMap()->GetPlayers();
+                    for (Map::PlayerList::const_iterator itr = players.begin(); itr != players.end(); ++itr)
+                    {
+                        if (Player* pPlayer = itr->getSource())
+                        {
+                            // ignore Game Master characters
+                            if (pPlayer->isGameMaster())
+                                break;
+                            // Acquire player's coordinates
+                            float fPlayerXposition = pPlayer->GetPositionX();
+                            float fPlayerYposition = pPlayer->GetPositionY();
+                            float fPlayerZposition = pPlayer->GetPositionZ();
 
-							// Check if the player is near the creature
-							// If a player is nearby, then we do not need to check other player locations, therefore stop checking - break out of this
-							if (pPlayer->IsNearWaypoint(fPlayerXposition, fPlayerYposition, fPlayerZposition, m_creature->GetPositionX(), m_creature->GetPositionY(), m_creature->GetPositionZ(), 4, 4, 4))
-							{
-								m_creature->SetStandState(UNIT_STAND_STATE_STAND);
-								return;
-							}
-						}
-					}
-					// no players nearby, therefore send the creature to sleep
-					m_creature->SetStandState(UNIT_STAND_STATE_SLEEP);
-					m_creature->GetMotionMaster()->MoveIdle();
+                            // Check if the player is near the creature
+                            // If a player is nearby, then we do not need to check other player locations, therefore stop checking - break out of this
+                            if (pPlayer->IsNearWaypoint(fPlayerXposition, fPlayerYposition, fPlayerZposition, m_creature->GetPositionX(), m_creature->GetPositionY(), m_creature->GetPositionZ(), 4, 4, 4))
+                            {
+                                m_creature->SetStandState(UNIT_STAND_STATE_STAND);
+                                return;
+                            }
+                        }
+                    }
+                    // no players nearby, therefore send the creature to sleep
+                    // - random decision on sleep or not
+                    if (uSleepTime < uiDiff)
+                    {
+                        uint32 uSpawn = rand() % 60;
+                        if (uSpawn >= 1 || uSpawn <= 40)
+                        {
+                            m_creature->SetStandState(UNIT_STAND_STATE_SLEEP);
+                            // random movement if not too far from spawn location
+                            uint32 uDistance = 5 + rand() % 10;
+                            if (m_creature->IsNearWaypoint(m_creature->GetPositionX(), m_creature->GetPositionY(), m_creature->GetPositionZ(), fSpawnPositionX, fSpawnPositionY, fSpawnPositionZ, 20, 20, 20))
+                                m_creature->GetMotionMaster()->MoveRandomAroundPoint(m_creature->GetPositionX(), m_creature->GetPositionY(), m_creature->GetPositionZ(), uDistance, 0);
+                            else
+                                m_creature->GetMotionMaster()->MovePoint(0, fSpawnPositionX, fSpawnPositionY, fSpawnPositionZ);
+                            // set a counter
+                        }
+                        uSleepTime = 600000 + rand() % 600000; // wait for 10 to 20 minutes before deciding on being either awake or asleep
+                    }
+                    else
+                        uSleepTime -= uiDiff;
 
-				}
-			}
+                }
+            }
 
-			// no player character around, therefore exit script
-			if (!m_creature->SelectHostileTarget() || !m_creature->getVictim())
-				return;
+            // no player character around, therefore exit script
+            if (!m_creature->SelectHostileTarget() || !m_creature->getVictim())
+                return;
 
-			// player is nearby, therefore move in and engage them in combat
-			m_creature->GetMotionMaster()->MoveChase(m_creature->getVictim());
-			if (m_creature->isAttackReady())
-			{
-				DoMeleeAttackIfReady();
-				m_creature->resetAttackTimer();
-			}
+            // player is nearby, therefore move in and engage them in combat
+            m_creature->GetMotionMaster()->MoveChase(m_creature->getVictim());
+            if (m_creature->isAttackReady())
+            {
+                DoMeleeAttackIfReady();
+                m_creature->resetAttackTimer();
+            }
 
         }
 
@@ -204,7 +242,7 @@ struct mob_sleeping_creature : public CreatureScript
 		
     CreatureAI* GetAI(Creature* pCreature) override
     {
-		return new mob_sleeping_creatureAI(pCreature);
+        return new mob_sleeping_creatureAI(pCreature);
     }
 };
 
